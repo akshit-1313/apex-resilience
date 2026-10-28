@@ -13,5 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   plugin, and Husky with lint-staged.
 - MIT licence.
 - Community files: pull request template, issue forms, this changelog and a security policy.
+- CI: a static-analysis job (Prettier and Salesforce Code Analyzer) on every pull request and
+  push to `main`.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
