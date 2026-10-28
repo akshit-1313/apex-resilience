@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a change to how apex-resilience decides or executes retries.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        apex-resilience stays small on purpose. Every feature must help decide or execute a safe
+        retry. Logging, generic HTTP clients, trigger frameworks and admin UIs are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What failure or retry situation can't you handle today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: How does this help decide or execute a safe retry?
+      description: Requests that can't answer this are likely out of scope.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
