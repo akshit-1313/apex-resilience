@@ -1,0 +1,10 @@
+# Salesforce Code Analyzer v5 configuration. Overrides only; every other setting stays default.
+# eslint and retire-js scan JavaScript, and this project has none yet.
+# sfge (Graph Engine) is a slow path-based engine, not needed for a project this small.
+engines:
+  eslint:
+    disable_engine: true
+  retire-js:
+    disable_engine: true
+  sfge:
+    disable_engine: true

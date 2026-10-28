@@ -1,0 +1,105 @@
+# Job 1 (static-analysis) runs on every event. Job 2 (scratch-org tests) arrives in a later PR.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_scratch_org:
+        description: Skip the scratch-org job
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels the older run; runs on main always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      needs_org: ${{ steps.changes.outputs.needs_org }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Set up Node from the Volta pin
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install npm dependencies
+        run: npm ci
+        env:
+          HUSKY: "0"
+
+      - name: Check formatting
+        run: npm run prettier:verify
+
+      - name: Install Salesforce CLI
+        run: |
+          npm install --global @salesforce/cli@2.151.7
+          sf --version
+
+      - name: Install Code Analyzer plugin
+        run: sf plugins install code-analyzer@5.16.0
+
+      - name: Run Code Analyzer
+        id: analyzer
+        uses: forcedotcom/run-code-analyzer@318e7429b49b97904dc41f7acbd41003db403965 # v2.14.0
+        with:
+          run-arguments: --workspace . --view detail --output-file sfca_results.json
+
+      # Fails closed: a missing output (crashed analyzer) is treated as a failure.
+      - name: Fail on analyzer errors or sev1/sev2 violations
+        env:
+          EXIT_CODE: ${{ steps.analyzer.outputs.exit-code }}
+          SEV1: ${{ steps.analyzer.outputs.num-sev1-violations }}
+          SEV2: ${{ steps.analyzer.outputs.num-sev2-violations }}
+        run: |
+          echo "exit-code=${EXIT_CODE:-missing} sev1=${SEV1:-missing} sev2=${SEV2:-missing}"
+          if [ "$EXIT_CODE" != "0" ] || [ "$SEV1" != "0" ] || [ "$SEV2" != "0" ]; then
+            echo "::error::Code Analyzer did not finish cleanly or found sev1/sev2 violations."
+            exit 1
+          fi
+
+      # Job 2 will read this output. Anything other than Markdown or LICENSE needs a scratch org;
+      # manual runs always do, and so does any run where the diff can't be computed.
+      - name: Decide whether this change needs a scratch org
+        id: changes
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            needs_org=true
+            echo "Manual run: scratch org needed."
+          elif ! changed=$(git diff --name-only HEAD^1 HEAD); then
+            needs_org=true
+            echo "::warning::Could not compute the diff; assuming a scratch org is needed."
+          else
+            echo "Changed files:"
+            echo "$changed"
+            if grep -qvE '(\.md$|^LICENSE$)' <<< "$changed"; then
+              needs_org=true
+            else
+              needs_org=false
+            fi
+          fi
+          echo "needs_org=$needs_org" >> "$GITHUB_OUTPUT"
+          echo "needs_org=$needs_org"
