@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in apex-resilience behaves differently from its documentation.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't report security problems here; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: apex-resilience version
+      description: Package version, or the commit SHA if you installed from source.
+      placeholder: "0.1.0 or a1b2c3d"
+    validations:
+      required: true
+  - type: dropdown
+    id: org-type
+    attributes:
+      label: Org type
+      options:
+        - Production
+        - Sandbox
+        - Scratch org
+        - Developer Edition
+    validations:
+      required: true
+  - type: input
+    id: api-version
+    attributes:
+      label: API version of the calling code
+      placeholder: "67.0"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest code or input that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: For example, the verdict you expected (RETRYABLE, TERMINAL or POISON) and why.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What happened instead, including any exception message.
+    validations:
+      required: true
