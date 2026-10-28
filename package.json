@@ -1,0 +1,26 @@
+{
+  "name": "apex-resilience",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Failure classification, safe retry and dead-lettering for Salesforce integrations",
+  "scripts": {
+    "prettier": "prettier --write \"**/*.{cls,trigger,json,md,yml,yaml}\"",
+    "prettier:verify": "prettier --check \"**/*.{cls,trigger,json,md,yml,yaml}\"",
+    "prepare": "husky || true",
+    "precommit": "lint-staged"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.5.3",
+    "prettier-plugin-apex": "^2.2.6"
+  },
+  "lint-staged": {
+    "**/*.{cls,trigger,json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "volta": {
+    "node": "24.21.0"
+  }
+}

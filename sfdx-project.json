@@ -1,0 +1,16 @@
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "package": "apex-resilience",
+      "versionName": "v0.1",
+      "versionNumber": "0.1.0.NEXT",
+      "versionDescription": "Failure classification, safe retry and dead-lettering for Salesforce integrations"
+    }
+  ],
+  "name": "apex-resilience",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "67.0"
+}

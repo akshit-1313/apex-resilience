@@ -1,0 +1,9 @@
+# Files and directories the CLI skips on sf project deploy / retrieve
+# More information: https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_exclude_source.htm
+#
+
+package.xml
+
+node_modules/
+**/jsconfig.json
+**/.eslintrc.json
