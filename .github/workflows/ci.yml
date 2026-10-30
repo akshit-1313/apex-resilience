@@ -1,4 +1,5 @@
-# Job 1 (static-analysis) runs on every event. Job 2 (scratch-org tests) arrives in a later PR.
+# Job 1 (static-analysis) runs on every event. Job 2 (scratch-org-tests) runs the Apex tests in a
+# fresh scratch org, only when job 1 passes and the change needs an org.
 name: CI
 
 on:
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   static-analysis:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       needs_org: ${{ steps.changes.outputs.needs_org }}
@@ -81,7 +82,7 @@ jobs:
             exit 1
           fi
 
-      # Job 2 will read this output. Anything other than Markdown or LICENSE needs a scratch org;
+      # Job 2 reads this output. Anything other than Markdown or LICENSE needs a scratch org;
       # manual runs always do, and so does any run where the diff can't be computed.
       - name: Decide whether this change needs a scratch org
         id: changes
@@ -103,3 +104,52 @@ jobs:
           fi
           echo "needs_org=$needs_org" >> "$GITHUB_OUTPUT"
           echo "needs_org=$needs_org"
+
+  scratch-org-tests:
+    needs: static-analysis
+    # Skipped (and a skipped job reports success) for docs-only changes, manual runs with
+    # skip_scratch_org, Dependabot, draft PRs and fork PRs, which receive no secrets.
+    if: >-
+      needs.static-analysis.outputs.needs_org == 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.skip_scratch_org) &&
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+      (!github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # bash here means -eo pipefail, so a failing sf command can't hide behind a jq pipe.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node from the Volta pin
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+
+      - name: Install Salesforce CLI
+        run: |
+          npm install --global @salesforce/cli@2.151.7
+          sf --version
+
+      # The auth URL arrives through env and a pipe, so it never touches disk or the command line.
+      # The "-" matters: --sfdx-url-stdin takes a value and would otherwise swallow --alias.
+      # JSON output keeps the Dev Hub username and org ID out of the public log.
+      - name: Log in to the Dev Hub
+        env:
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
+        run: |
+          echo "$SFDX_AUTH_URL" \
+            | sf org login sfdx-url --sfdx-url-stdin - --alias devhub --set-default-dev-hub --json \
+            | jq -r 'if .status == 0 then "Logged in to the Dev Hub." else .message end'
+
+      - name: Log remaining scratch-org allocation
+        run: |
+          sf org list limits --target-org devhub --json \
+            | jq -r '.result[] | select(.name | endswith("ScratchOrgs")) | "\(.name): \(.remaining) of \(.max) left"'
