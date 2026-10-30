@@ -21,5 +21,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   org-wide coverage. Both CI jobs run on a pinned `ubuntu-24.04` runner.
 - README (status, verdicts, current classifier rules, roadmap and prior art) and contributing
   guidelines, including how pull requests from forks are tested.
+- Dependabot: weekly grouped updates for GitHub Actions and npm, with a 7-day cooldown on new
+  releases.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
