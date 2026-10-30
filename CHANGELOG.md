@@ -17,5 +17,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   push to `main`.
 - `FailureClass` and `HttpFailureClassifier`: classifies a failed callout's HTTP status code as
   RETRYABLE, TERMINAL or POISON.
+- CI: a scratch-org job that deploys to a fresh scratch org, runs the Apex tests and requires 90%
+  org-wide coverage. Both CI jobs run on a pinned `ubuntu-24.04` runner.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
