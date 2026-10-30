@@ -153,3 +153,50 @@ jobs:
         run: |
           sf org list limits --target-org devhub --json \
             | jq -r '.result[] | select(.name | endswith("ScratchOrgs")) | "\(.name): \(.remaining) of \(.max) left"'
+
+      # JSON output again: the plain output links to the Dev Hub's domain, and the JSON may carry
+      # an access token, so jq prints only the new org's username.
+      - name: Create a scratch org
+        id: create-org
+        run: |
+          sf org create scratch --definition-file config/project-scratch-def.json --alias ci-scratch \
+            --duration-days 1 --target-dev-hub devhub --wait 10 --json \
+            | jq -r 'if .status == 0 then "Created scratch org \(.result.username)" else .message end'
+
+      - name: Deploy to the scratch org
+        run: sf project deploy start --source-dir force-app --target-org ci-scratch --wait 10
+
+      # The CLI exits with code 100 when a test fails. The failing tests are printed first so the
+      # log shows them; the step then exits with the CLI's own code.
+      - name: Run Apex tests
+        run: |
+          mkdir -p test-results
+          status=0
+          sf apex run test --wait 20 --code-coverage --result-format json \
+            --output-dir test-results --target-org ci-scratch > test-results/result.json || status=$?
+          jq -r '.result.tests[]? | select(.Outcome != "Pass") | "FAIL \(.FullName): \(.Message)"' \
+            test-results/result.json || true
+          exit "$status"
+
+      # Fails closed: a false result, a missing field (for example a --wait timeout that returns
+      # only a run ID) or an unreadable file all make jq exit non-zero.
+      - name: Require passing tests and 90% org-wide coverage
+        run: |
+          jq -r '"outcome=\(.result.summary.outcome) orgWideCoverage=\(.result.summary.orgWideCoverage)"' \
+            test-results/result.json
+          jq -e '.result.summary.outcome == "Passed" and ((.result.summary.orgWideCoverage | rtrimstr("%") | tonumber) >= 90)' \
+            test-results/result.json
+
+      # !cancelled() still uploads after a failure, when the results matter most.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apex-test-results
+          path: test-results/
+
+      # always() also runs when a newer push cancels this run, so cancelling can't leak an org.
+      # It's skipped only when no org was ever requested, for example because the login failed.
+      - name: Delete the scratch org
+        if: ${{ always() && steps.create-org.outcome != 'skipped' }}
+        run: sf org delete scratch --target-org ci-scratch --no-prompt
