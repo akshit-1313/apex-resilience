@@ -1,0 +1,32 @@
+# Weekly version updates, grouped so each ecosystem opens at most one pull request a week.
+# The Salesforce CLI and Code Analyzer plugin are pinned in `run:` lines in ci.yml, which
+# Dependabot can't see, so those are bumped by hand.
+# cooldown skips releases younger than 7 days: compromised releases are usually caught and pulled
+# within that window. It applies to version updates only, not to security alerts.
+version: 2
+updates:
+  # Bumps the pinned action SHAs and their version comments together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Prettier, the Apex plugin, Husky and lint-staged.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+    groups:
+      npm:
+        patterns: ["*"]
