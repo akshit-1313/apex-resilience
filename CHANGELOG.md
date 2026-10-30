@@ -19,5 +19,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   RETRYABLE, TERMINAL or POISON.
 - CI: a scratch-org job that deploys to a fresh scratch org, runs the Apex tests and requires 90%
   org-wide coverage. Both CI jobs run on a pinned `ubuntu-24.04` runner.
+- README (status, verdicts, current classifier rules, roadmap and prior art) and contributing
+  guidelines, including how pull requests from forks are tested.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
