@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Integration__c</fullName>
+    <description>The integration this rule applies to, matched without regard to case. Blank makes it a global rule, checked after the integration's own rules.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>The name the code passes to IntegrationFailure, for example SAP_PI_Orders. Leave blank for a rule that applies to every integration.</inlineHelpText>
+    <label>Integration</label>
+    <length>80</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

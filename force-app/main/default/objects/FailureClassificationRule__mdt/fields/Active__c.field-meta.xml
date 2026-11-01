@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Active__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Only active rules are used. Switches a rule off without deleting it.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Untick to switch the rule off without deleting it.</inlineHelpText>
+    <label>Active</label>
+    <type>Checkbox</type>
+</CustomField>

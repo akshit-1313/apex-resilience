@@ -34,5 +34,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - SOAP fault detection in `HttpFailureClassifier`: on a 400 or 500, a SOAP 1.1 or 1.2 fault's
   standard code decides first (Client/Sender POISON; VersionMismatch, MustUnderstand and
   DataEncodingUnknown TERMINAL); Server/Receiver faults fall through to the status rules.
+- Per-integration overrides: the `FailureClassificationRule__mdt` Custom Metadata type (with
+  validation rules and a page layout) and `ConfiguredFailureClassifier`, which tries matching
+  rules before the built-in classifier for the failure's kind.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
