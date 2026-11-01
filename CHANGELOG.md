@@ -28,5 +28,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `HttpFailureClassifier` implements the interface.
 - `CalloutFailureClassifier`: classifies a callout that got no response by its exception message.
   Configuration and code problems are TERMINAL; everything else is RETRYABLE.
+- `DmlFailureClassifier`: classifies a record's DML errors by status code. Row locks are
+  RETRYABLE, bad record data is POISON, everything else is TERMINAL; with several errors, the most
+  severe wins.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
