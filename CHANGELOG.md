@@ -31,5 +31,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `DmlFailureClassifier`: classifies a record's DML errors by status code. Row locks are
   RETRYABLE, bad record data is POISON, everything else is TERMINAL; with several errors, the most
   severe wins.
+- SOAP fault detection in `HttpFailureClassifier`: on a 400 or 500, a SOAP 1.1 or 1.2 fault's
+  standard code decides first (Client/Sender POISON; VersionMismatch, MustUnderstand and
+  DataEncodingUnknown TERMINAL); Server/Receiver faults fall through to the status rules.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main

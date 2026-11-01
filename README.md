@@ -34,7 +34,7 @@ Every classifier implements `FailureClassifier`, whose `classify` method takes a
 
 ### HTTP responses
 
-`HttpFailureClassifier` classifies a failed HTTP response by its status code:
+`HttpFailureClassifier` classifies a failed HTTP response: SOAP faults first, then the status code.
 
 ```apex
 HttpResponse response = new Http().send(request);
@@ -47,7 +47,23 @@ if (response.getStatusCode() >= 300) {
 }
 ```
 
-`new HttpFailureClassifier().classify(statusCode)` applies the same rules to a bare status code.
+`new HttpFailureClassifier().classify(statusCode)` applies the status rules alone to a bare status
+code.
+
+**SOAP faults.** When the status is 400 or 500 and the body is a SOAP 1.1 or 1.2 fault, the
+standard fault code decides:
+
+| Fault code                                                 | Verdict      | Why                                                                                |
+| ---------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `Client` (SOAP 1.1), `Sender` (SOAP 1.2)                   | `POISON`     | The receiver says the message itself is wrong                                      |
+| `VersionMismatch`, `MustUnderstand`, `DataEncodingUnknown` | `TERMINAL`   | A protocol or configuration mismatch; someone fixes the setup, then replays        |
+| `Server` (1.1), `Receiver` (1.2), or any other code        | status rules | Usually transient. SAP PI also reports business errors here; overrides catch those |
+
+A SOAP 1.1 dotted code such as `Client.Authentication` counts as `Client`. Bodies over 100,000
+characters skip SOAP parsing and go straight to the status rules: XML parsing takes several times
+the body's size in heap, and running out of heap can't be caught in Apex.
+
+**Status codes:**
 
 | Status code            | Verdict     | Why                                                                                                 |
 | ---------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
@@ -63,7 +79,8 @@ if (response.getStatusCode() >= 300) {
 failure of another kind passed to `HttpFailureClassifier`: that's a bug in the caller.
 
 500 is retried by default, even though some middleware returns deterministic business errors as
-500: SOAP 1.1 faults always travel on 500, SAP PI's included. Planned per-integration overrides and
+500: SOAP 1.1 faults always travel on 500, SAP PI's included. SOAP `Client` faults are caught
+above; for business errors reported as `Server` faults, planned per-integration overrides and
 attempt caps are the defence.
 
 ### Callout exceptions
