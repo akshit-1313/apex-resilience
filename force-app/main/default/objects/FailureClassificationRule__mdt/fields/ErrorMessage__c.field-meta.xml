@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ErrorMessage__c</fullName>
+    <description>Text the failure must contain, ignoring case: the response body (HTTP_RESPONSE), the exception message (CALLOUT_EXCEPTION), or the record's errors written as STATUS_CODE: message (DML_ERRORS). Blank matches any text.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>Store the distinctive part, such as Material does not exist, not a whole response: bodies carry timestamps and IDs. For DML, a status code such as DUPLICATE_VALUE also matches.</inlineHelpText>
+    <label>Error Message</label>
+    <length>13100</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

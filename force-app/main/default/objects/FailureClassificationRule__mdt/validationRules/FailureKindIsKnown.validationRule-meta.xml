@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FailureKindIsKnown</fullName>
+    <active>true</active>
+    <description>Failure Kind is Text, not a picklist, so a typo would otherwise make the rule silently useless.</description>
+    <errorConditionFormula>NOT(OR(FailureKind__c = &quot;HTTP_RESPONSE&quot;, FailureKind__c = &quot;CALLOUT_EXCEPTION&quot;, FailureKind__c = &quot;DML_ERRORS&quot;))</errorConditionFormula>
+    <errorDisplayField>FailureKind__c</errorDisplayField>
+    <errorMessage>Failure Kind must be HTTP_RESPONSE, CALLOUT_EXCEPTION or DML_ERRORS.</errorMessage>
+</ValidationRule>

@@ -133,12 +133,49 @@ for (Database.SaveResult result : results) {
 When a record has several errors, the most severe wins: `POISON`, then `TERMINAL`, then
 `RETRYABLE`. A record that is locked and also fails validation won't succeed on retry.
 
+### Per-integration overrides
+
+A status code or a message can't always tell the right verdict: SAP PI, for example, can report
+"material does not exist" as a 500. Rules in the `FailureClassificationRule__mdt` Custom Metadata
+type override the built-in verdict for one integration, or for all of them.
+`ConfiguredFailureClassifier` is the entry point: rules first, then the built-in classifier for
+the failure's kind.
+
+```apex
+FailureClassifier classifier = new ConfiguredFailureClassifier(); // loads the rules: one SOQL query
+FailureClass verdict = classifier.classify(
+  IntegrationFailure.fromResponse('SAP_PI_Orders', response)
+);
+```
+
+| Field           | Meaning                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Integration`   | The integration's name, as passed to `IntegrationFailure`, matched without regard to case. Blank makes a global rule                                   |
+| `Failure Kind`  | `HTTP_RESPONSE`, `CALLOUT_EXCEPTION` or `DML_ERRORS`                                                                                                   |
+| `Status Code`   | HTTP status to match; blank matches any. `HTTP_RESPONSE` rules only                                                                                    |
+| `Error Message` | Text the failure must contain, ignoring case: the response body, the exception message, or each DML error as `STATUS_CODE: message`. Blank matches any |
+| `Verdict`       | `RETRYABLE`, `TERMINAL` or `POISON`                                                                                                                    |
+| `Priority`      | Lower runs first                                                                                                                                       |
+| `Active`        | Only active rules are used                                                                                                                             |
+
+Example: Integration `SAP_PI_Orders`, Failure Kind `HTTP_RESPONSE`, Status Code `500`, Error
+Message `Material does not exist`, Verdict `TERMINAL`. Store the distinctive part of a message,
+not a whole response: bodies carry timestamps and IDs.
+
+Rules for the failure's integration are tried before global rules, so a specific rule always beats
+a general one; within each group, by priority, then by name. The first match wins. Validation
+rules reject an unknown kind or verdict, and a status code on a non-HTTP rule. Rules load with one
+SOQL query rather than `getAll()`, because `getAll()` cuts long text fields to 255 characters.
+
+An override can also classify a 2xx response, such as a 200 whose body reports an error. Without
+a matching rule, a 2xx still throws `IllegalArgumentException`.
+
 ## Roadmap
 
 | Stage | Scope                                                                                                                                                  |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 0     | Project skeleton and CI; status-code classification. Done.                                                                                             |
-| 1     | A classifier interface; classification of callout exceptions and DML results; per-integration overrides in Custom Metadata. **Current.**               |
+| 1     | A classifier interface; classification of callout exceptions and DML results; per-integration overrides in Custom Metadata. Done.                      |
 | 2     | A request ledger (custom object); dispatch through Queueable and Transaction Finalizer; backoff with full jitter; idempotency keys; dead-letter status |
 | 3     | A scheduled sweeper that recovers orphaned requests; an invocable replay action; a purge job                                                           |
 | 4     | The v0.1 unlocked package                                                                                                                              |

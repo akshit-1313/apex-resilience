@@ -12,7 +12,8 @@
  */
 public inherited sharing class IntegrationFailure {
   /**
-   * @description What kind of failure this is. The kind decides which classifier handles it.
+   * @description What kind of failure this is. The kind decides which classifier handles it. The
+   * value names are the values allowed in FailureClassificationRule__mdt.FailureKind__c.
    */
   public enum FailureKind {
     /** An HTTP response with an error status. */
@@ -24,8 +25,8 @@ public inherited sharing class IntegrationFailure {
   }
 
   /**
-   * @description The integration's name, for example SAP_PI_Orders. Blank means only the built-in
-   * rules apply.
+   * @description The integration's name, for example SAP_PI_Orders. Overrides for this name apply
+   * first; blank means only global overrides and the built-in rules apply.
    */
   public final String integration;
 
@@ -73,7 +74,7 @@ public inherited sharing class IntegrationFailure {
 
   /**
    * @description Captures an HTTP response that came back with an error status.
-   * @param integration the integration's name; blank means only the built-in rules apply
+   * @param integration the integration's name; blank means no integration-specific overrides
    * @param response the response; its status code and body are copied
    * @return the failure, of kind HTTP_RESPONSE
    * @throws IllegalArgumentException if response is null
@@ -93,7 +94,7 @@ public inherited sharing class IntegrationFailure {
   /**
    * @description Captures a callout that got no response, such as a timeout or a refused
    * connection.
-   * @param integration the integration's name; blank means only the built-in rules apply
+   * @param integration the integration's name; blank means no integration-specific overrides
    * @param error the exception; its message is copied
    * @return the failure, of kind CALLOUT_EXCEPTION
    * @throws IllegalArgumentException if error is null
@@ -113,7 +114,7 @@ public inherited sharing class IntegrationFailure {
   /**
    * @description Captures the errors DML returned for one record. Takes Database.Error, so it
    * works for insert, update, upsert and delete results alike.
-   * @param integration the integration's name; blank means only the built-in rules apply
+   * @param integration the integration's name; blank means no integration-specific overrides
    * @param errors the record's errors, for example from Database.SaveResult.getErrors(); the
    * list is copied
    * @return the failure, of kind DML_ERRORS

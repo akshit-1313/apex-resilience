@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>StatusCodeOnlyForHttp</fullName>
+    <active>true</active>
+    <description>Only HTTP responses have a status code, so any other rule with one could never match.</description>
+    <errorConditionFormula>AND(NOT(ISBLANK(StatusCode__c)), FailureKind__c &lt;&gt; &quot;HTTP_RESPONSE&quot;)</errorConditionFormula>
+    <errorDisplayField>StatusCode__c</errorDisplayField>
+    <errorMessage>Status Code applies only to HTTP_RESPONSE rules; leave it blank for other kinds.</errorMessage>
+</ValidationRule>

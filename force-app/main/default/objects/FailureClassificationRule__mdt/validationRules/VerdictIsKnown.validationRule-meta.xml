@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VerdictIsKnown</fullName>
+    <active>true</active>
+    <description>Verdict is Text, not a picklist, so a typo such as TERMINL would otherwise make the rule silently useless.</description>
+    <errorConditionFormula>NOT(OR(Verdict__c = &quot;RETRYABLE&quot;, Verdict__c = &quot;TERMINAL&quot;, Verdict__c = &quot;POISON&quot;))</errorConditionFormula>
+    <errorDisplayField>Verdict__c</errorDisplayField>
+    <errorMessage>Verdict must be RETRYABLE, TERMINAL or POISON.</errorMessage>
+</ValidationRule>
