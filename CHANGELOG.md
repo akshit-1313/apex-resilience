@@ -26,5 +26,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `FailureClassifier`, the interface every classifier implements, and `IntegrationFailure`, an
   immutable snapshot of one failed attempt (HTTP response, callout exception or DML errors).
   `HttpFailureClassifier` implements the interface.
+- `CalloutFailureClassifier`: classifies a callout that got no response by its exception message.
+  Configuration and code problems are TERMINAL; everything else is RETRYABLE.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main
