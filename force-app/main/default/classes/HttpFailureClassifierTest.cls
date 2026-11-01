@@ -129,6 +129,119 @@ private class HttpFailureClassifierTest {
     );
   }
 
+  private static String soap11Fault(String faultCode) {
+    return '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><soap:Fault>' +
+      '<faultcode>' +
+      faultCode +
+      '</faultcode><faultstring>Material 4711 does not exist</faultstring>' +
+      '</soap:Fault></soap:Body></soap:Envelope>';
+  }
+
+  private static String soap12Fault(String codeValue) {
+    return '<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"><env:Body><env:Fault>' +
+      '<env:Code><env:Value>' +
+      codeValue +
+      '</env:Value></env:Code><env:Reason><env:Text xml:lang="en">Invalid order</env:Text></env:Reason>' +
+      '</env:Fault></env:Body></env:Envelope>';
+  }
+
+  @IsTest
+  static void classifiesSoapFaults() {
+    // Each label starts with the response's status code.
+    Map<String, String> bodies = new Map<String, String>{
+      '500 SOAP 1.1 Client' => soap11Fault('soap:Client'),
+      '500 SOAP 1.1 dotted Client code' => soap11Fault(
+        'soap:Client.InvalidMaterial'
+      ),
+      '500 SOAP 1.1 unprefixed Client' => soap11Fault('Client'),
+      '500 SOAP 1.1 Server' => soap11Fault('soap:Server'),
+      '400 SOAP 1.1 Server' => soap11Fault('soap:Server'),
+      '500 SOAP 1.1 VersionMismatch' => soap11Fault('soap:VersionMismatch'),
+      '500 SOAP 1.1 MustUnderstand' => soap11Fault('soap:MustUnderstand'),
+      '502 SOAP 1.1 Client, not checked on 502' => soap11Fault('soap:Client'),
+      '500 SOAP 1.1 Client in a non-SOAP namespace' => soap11Fault('sap:Client')
+        .replace(
+          '<faultcode>',
+          '<faultcode xmlns:sap="urn:sap-com:document:sap">'
+        ),
+      '500 SOAP 1.1 fault without a faultcode' => soap11Fault('soap:Client')
+        .replace('<faultcode>soap:Client</faultcode>', ''),
+      '500 SOAP 1.1 Client over 100,000 characters' => soap11Fault(
+          'soap:Client'
+        )
+        .replace('Material 4711 does not exist', 'x'.repeat(100000)),
+      '400 SOAP 1.2 Sender' => soap12Fault('env:Sender'),
+      '500 SOAP 1.2 Sender' => soap12Fault('env:Sender'),
+      '500 SOAP 1.2 Receiver' => soap12Fault('env:Receiver'),
+      '500 SOAP 1.2 DataEncodingUnknown' => soap12Fault(
+        'env:DataEncodingUnknown'
+      ),
+      '500 SOAP 1.2 fault without a Code' => soap12Fault('env:Sender')
+        .replace('<env:Code><env:Value>env:Sender</env:Value></env:Code>', ''),
+      '500 Envelope without a Fault element' => '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><m:Result xmlns:m="urn:example">Fault tolerance off</m:Result></soap:Body></soap:Envelope>',
+      '500 Envelope without a Body' => '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Header><m:Fault xmlns:m="urn:example"/></soap:Header></soap:Envelope>',
+      '500 Envelope in a non-SOAP namespace' => '<Envelope xmlns="urn:example"><Body><Fault><faultcode>Client</faultcode></Fault></Body></Envelope>',
+      '500 Not XML' => 'Envelope Fault: <soap:Envelope><soap:Fault>'
+    };
+    Map<String, FailureClass> expectedVerdicts = new Map<String, FailureClass>{
+      '500 SOAP 1.1 Client' => FailureClass.POISON,
+      '500 SOAP 1.1 dotted Client code' => FailureClass.POISON,
+      '500 SOAP 1.1 unprefixed Client' => FailureClass.POISON,
+      '500 SOAP 1.1 Server' => FailureClass.RETRYABLE,
+      '400 SOAP 1.1 Server' => FailureClass.POISON,
+      '500 SOAP 1.1 VersionMismatch' => FailureClass.TERMINAL,
+      '500 SOAP 1.1 MustUnderstand' => FailureClass.TERMINAL,
+      '502 SOAP 1.1 Client, not checked on 502' => FailureClass.RETRYABLE,
+      '500 SOAP 1.1 Client in a non-SOAP namespace' => FailureClass.RETRYABLE,
+      '500 SOAP 1.1 fault without a faultcode' => FailureClass.RETRYABLE,
+      '500 SOAP 1.1 Client over 100,000 characters' => FailureClass.RETRYABLE,
+      '400 SOAP 1.2 Sender' => FailureClass.POISON,
+      '500 SOAP 1.2 Sender' => FailureClass.POISON,
+      '500 SOAP 1.2 Receiver' => FailureClass.RETRYABLE,
+      '500 SOAP 1.2 DataEncodingUnknown' => FailureClass.TERMINAL,
+      '500 SOAP 1.2 fault without a Code' => FailureClass.RETRYABLE,
+      '500 Envelope without a Fault element' => FailureClass.RETRYABLE,
+      '500 Envelope without a Body' => FailureClass.RETRYABLE,
+      '500 Envelope in a non-SOAP namespace' => FailureClass.RETRYABLE,
+      '500 Not XML' => FailureClass.RETRYABLE
+    };
+    FailureClassifier classifier = new HttpFailureClassifier();
+    List<String> mismatches = new List<String>();
+
+    for (String label : expectedVerdicts.keySet()) {
+      FailureClass expectedVerdict = expectedVerdicts.get(label);
+      HttpResponse response = new HttpResponse();
+      response.setStatusCode(Integer.valueOf(label.substringBefore(' ')));
+      response.setBody(bodies.get(label));
+      try {
+        FailureClass actualVerdict = classifier.classify(
+          IntegrationFailure.fromResponse('Test', response)
+        );
+        if (actualVerdict != expectedVerdict) {
+          mismatches.add(
+            label + ': expected ' + expectedVerdict + ', got ' + actualVerdict
+          );
+        }
+      } catch (Exception unexpected) {
+        mismatches.add(
+          label +
+            ': expected ' +
+            expectedVerdict +
+            ', threw ' +
+            unexpected.getTypeName() +
+            ': ' +
+            unexpected.getMessage()
+        );
+      }
+    }
+
+    Assert.areEqual(
+      0,
+      mismatches.size(),
+      'Misclassified SOAP responses: ' + String.join(mismatches, '; ')
+    );
+  }
+
   @IsTest
   static void rejectsFailuresItDoesNotHandle() {
     List<Database.Error> dmlErrors = (List<Database.Error>) JSON.deserialize(
