@@ -32,6 +32,8 @@ Every classifier implements `FailureClassifier`, whose `classify` method takes a
 `IntegrationFailure`: an immutable snapshot of one failed attempt, built from an HTTP response, a
 `CalloutException` or a record's DML errors, plus the name of the integration it belongs to.
 
+### HTTP responses
+
 `HttpFailureClassifier` classifies a failed HTTP response by its status code:
 
 ```apex
@@ -63,6 +65,32 @@ failure of another kind passed to `HttpFailureClassifier`: that's a bug in the c
 500 is retried by default, even though some middleware returns deterministic business errors as
 500: SOAP 1.1 faults always travel on 500, SAP PI's included. Planned per-integration overrides and
 attempt caps are the defence.
+
+### Callout exceptions
+
+A callout that gets no response at all throws `CalloutException`. `CalloutFailureClassifier`
+classifies it by its message, ignoring case:
+
+```apex
+try {
+  HttpResponse response = new Http().send(request);
+} catch (CalloutException error) {
+  FailureClass verdict = new CalloutFailureClassifier()
+    .classify(IntegrationFailure.fromCalloutException('SAP_PI_Orders', error));
+}
+```
+
+| Message contains                   | Verdict     | Why                                                                                                    |
+| ---------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
+| `Unauthorized endpoint`            | `TERMINAL`  | The Remote Site Setting is missing                                                                     |
+| `named credential`                 | `TERMINAL`  | The named credential is missing or not permitted                                                       |
+| `PKIX`, `certificate`, `handshake` | `TERMINAL`  | A TLS trust or certificate problem                                                                     |
+| `uncommitted work pending`         | `TERMINAL`  | A callout after DML in the same transaction: a bug in the calling code                                 |
+| Anything else                      | `RETRYABLE` | Timeouts, resets, refused connections and unreachable hosts are usually transient; attempts are capped |
+
+A host that doesn't resolve falls into the last row: Salesforce sends callouts through a proxy, so
+it surfaces as `Unable to tunnel through proxy. Proxy returns "HTTP/1.1 503 Service Unavailable"`,
+the same message as a host that is briefly down.
 
 ## Roadmap
 
