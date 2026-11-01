@@ -9,9 +9,9 @@
 @IsTest
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class HttpFailureClassifierTest {
-  @IsTest
-  static void classifiesEveryFailureCodeBand() {
-    Map<Integer, FailureClass> expectedVerdicts = new Map<Integer, FailureClass>{
+  // One table for both entry points, so classify(Integer) and the interface can never disagree.
+  private static Map<Integer, FailureClass> verdictTable() {
+    return new Map<Integer, FailureClass>{
       // Invalid HTTP status codes are treated as 5xx (RFC 9110 section 15)
       -1 => FailureClass.RETRYABLE,
       0 => FailureClass.RETRYABLE,
@@ -44,6 +44,18 @@ private class HttpFailureClassifierTest {
       504 => FailureClass.RETRYABLE,
       599 => FailureClass.RETRYABLE
     };
+  }
+
+  private static HttpResponse response(Integer statusCode) {
+    HttpResponse response = new HttpResponse();
+    response.setStatusCode(statusCode);
+    response.setBody('{"error":"test"}');
+    return response;
+  }
+
+  @IsTest
+  static void classifiesEveryFailureCodeBand() {
+    Map<Integer, FailureClass> expectedVerdicts = verdictTable();
     HttpFailureClassifier classifier = new HttpFailureClassifier();
     List<String> mismatches = new List<String>();
 
@@ -75,6 +87,96 @@ private class HttpFailureClassifierTest {
       0,
       mismatches.size(),
       'Misclassified status codes: ' + String.join(mismatches, '; ')
+    );
+  }
+
+  @IsTest
+  static void classifiesHttpResponsesThroughTheInterface() {
+    Map<Integer, FailureClass> expectedVerdicts = verdictTable();
+    FailureClassifier classifier = new HttpFailureClassifier();
+    List<String> mismatches = new List<String>();
+
+    for (Integer statusCode : expectedVerdicts.keySet()) {
+      FailureClass expectedVerdict = expectedVerdicts.get(statusCode);
+      try {
+        FailureClass actualVerdict = classifier.classify(
+          IntegrationFailure.fromResponse('Test', response(statusCode))
+        );
+        if (actualVerdict != expectedVerdict) {
+          mismatches.add(
+            statusCode +
+              ': expected ' +
+              expectedVerdict +
+              ', got ' +
+              actualVerdict
+          );
+        }
+      } catch (Exception unexpected) {
+        mismatches.add(
+          statusCode +
+            ': expected ' +
+            expectedVerdict +
+            ', threw ' +
+            unexpected.getTypeName()
+        );
+      }
+    }
+
+    Assert.areEqual(
+      0,
+      mismatches.size(),
+      'Misclassified responses: ' + String.join(mismatches, '; ')
+    );
+  }
+
+  @IsTest
+  static void rejectsFailuresItDoesNotHandle() {
+    List<Database.Error> dmlErrors = (List<Database.Error>) JSON.deserialize(
+      '[{"statusCode":"UNABLE_TO_LOCK_ROW","message":"locked","fields":[]}]',
+      List<Database.Error>.class
+    );
+    // Each key is text the error message must contain.
+    Map<String, IntegrationFailure> failures = new Map<String, IntegrationFailure>{
+      'null' => null,
+      'CALLOUT_EXCEPTION' => IntegrationFailure.fromCalloutException(
+        'Test',
+        new CalloutException('Read timed out')
+      ),
+      'DML_ERRORS' => IntegrationFailure.fromDmlErrors('Test', dmlErrors),
+      '200' => IntegrationFailure.fromResponse('Test', response(200))
+    };
+    FailureClassifier classifier = new HttpFailureClassifier();
+    List<String> problems = new List<String>();
+
+    for (String expectedText : failures.keySet()) {
+      try {
+        FailureClass verdict = classifier.classify(failures.get(expectedText));
+        problems.add(
+          expectedText + ': returned ' + verdict + ' instead of throwing'
+        );
+      } catch (IllegalArgumentException expected) {
+        if (!expected.getMessage().contains(expectedText)) {
+          problems.add(
+            expectedText +
+              ': error message does not say why: ' +
+              expected.getMessage()
+          );
+        }
+      } catch (Exception unexpected) {
+        problems.add(
+          expectedText +
+            ': threw ' +
+            unexpected.getTypeName() +
+            ' instead of IllegalArgumentException'
+        );
+      }
+    }
+
+    Assert.areEqual(
+      0,
+      problems.size(),
+      'Failures this classifier does not handle must be rejected: ' +
+      String.join(problems, '; ')
     );
   }
 

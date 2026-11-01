@@ -23,5 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   guidelines, including how pull requests from forks are tested.
 - Dependabot: weekly grouped updates for GitHub Actions and npm, with a 7-day cooldown on new
   releases.
+- `FailureClassifier`, the interface every classifier implements, and `IntegrationFailure`, an
+  immutable snapshot of one failed attempt (HTTP response, callout exception or DML errors).
+  `HttpFailureClassifier` implements the interface.
 
 [Unreleased]: https://github.com/akshit-1313/apex-resilience/commits/main

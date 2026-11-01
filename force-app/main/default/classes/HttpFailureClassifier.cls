@@ -1,6 +1,7 @@
 /**
  * @description Classifies a failed HTTP callout by its status code alone. Exceptions, response
- * bodies and Retry-After headers are not considered here.
+ * bodies and Retry-After headers are not considered here. Implements FailureClassifier for
+ * HTTP_RESPONSE failures; classify(Integer) applies the same rules to a bare status code.
  *
  * Each status code band has a default verdict, and a few codes override their band:
  * - 3xx: TERMINAL. A redirect that reaches the classifier was not followed, so the endpoint
@@ -17,7 +18,7 @@
  * grows: per-integration overrides (Stage 1), and the attempt cap plus the rule that repeated
  * identical failures become POISON (Stage 2).
  */
-public inherited sharing class HttpFailureClassifier {
+public inherited sharing class HttpFailureClassifier implements FailureClassifier {
   // Status codes whose verdict differs from the default for their band.
   private static final Map<Integer, FailureClass> SPECIAL_CASES = new Map<Integer, FailureClass>{
     400 => FailureClass.POISON, // Bad Request
@@ -28,6 +29,29 @@ public inherited sharing class HttpFailureClassifier {
     501 => FailureClass.TERMINAL, // Not Implemented
     505 => FailureClass.TERMINAL // HTTP Version Not Supported
   };
+
+  /**
+   * @description Returns the verdict for a failed HTTP response, by its status code.
+   * @param failure a failure of kind HTTP_RESPONSE
+   * @return RETRYABLE, TERMINAL or POISON
+   * @throws IllegalArgumentException if failure is null or not HTTP_RESPONSE, or if its status
+   * code is not a failure (see classify(Integer))
+   */
+  public FailureClass classify(IntegrationFailure failure) {
+    if (failure == null) {
+      throw new IllegalArgumentException(
+        'Cannot classify a null IntegrationFailure.'
+      );
+    }
+    if (failure.kind != IntegrationFailure.FailureKind.HTTP_RESPONSE) {
+      throw new IllegalArgumentException(
+        'HttpFailureClassifier handles HTTP_RESPONSE failures, not ' +
+          failure.kind +
+          '.'
+      );
+    }
+    return classify(failure.statusCode);
+  }
 
   /**
    * @description Returns the verdict for the HTTP status code of a failed callout.

@@ -28,15 +28,24 @@ Backoff with jitter, dead-lettering, idempotency and circuit breaking all build 
 
 ## What works today
 
-`HttpFailureClassifier` classifies a failed callout by its HTTP status code:
+Every classifier implements `FailureClassifier`, whose `classify` method takes an
+`IntegrationFailure`: an immutable snapshot of one failed attempt, built from an HTTP response, a
+`CalloutException` or a record's DML errors, plus the name of the integration it belongs to.
+
+`HttpFailureClassifier` classifies a failed HTTP response by its status code:
 
 ```apex
 HttpResponse response = new Http().send(request);
 if (response.getStatusCode() >= 300) {
-  FailureClass verdict = new HttpFailureClassifier().classify(response.getStatusCode());
+  FailureClassifier classifier = new HttpFailureClassifier();
+  FailureClass verdict = classifier.classify(
+    IntegrationFailure.fromResponse('SAP_PI_Orders', response)
+  );
   // RETRYABLE: retry with backoff. TERMINAL: alert a person. POISON: quarantine the message.
 }
 ```
+
+`new HttpFailureClassifier().classify(statusCode)` applies the same rules to a bare status code.
 
 | Status code            | Verdict     | Why                                                                                                 |
 | ---------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
@@ -48,7 +57,8 @@ if (response.getStatusCode() >= 300) {
 | Other 5xx              | `RETRYABLE` | The server erred                                                                                    |
 | Below 100 or above 599 | `RETRYABLE` | Invalid HTTP; RFC 9110 says to treat an invalid status code as a 5xx                                |
 
-`null` and 100-299 throw `IllegalArgumentException`, because they aren't failures.
+`null` and 100-299 throw `IllegalArgumentException`, because they aren't failures. So does a
+failure of another kind passed to `HttpFailureClassifier`: that's a bug in the caller.
 
 500 is retried by default, even though some middleware returns deterministic business errors as
 500: SOAP 1.1 faults always travel on 500, SAP PI's included. Planned per-integration overrides and
@@ -58,8 +68,8 @@ attempt caps are the defence.
 
 | Stage | Scope                                                                                                                                                  |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0     | Project skeleton and CI; status-code classification. **Current.**                                                                                      |
-| 1     | A classifier interface; classification of callout exceptions and DML results; per-integration overrides in Custom Metadata                             |
+| 0     | Project skeleton and CI; status-code classification. Done.                                                                                             |
+| 1     | A classifier interface; classification of callout exceptions and DML results; per-integration overrides in Custom Metadata. **Current.**               |
 | 2     | A request ledger (custom object); dispatch through Queueable and Transaction Finalizer; backoff with full jitter; idempotency keys; dead-letter status |
 | 3     | A scheduled sweeper that recovers orphaned requests; an invocable replay action; a purge job                                                           |
 | 4     | The v0.1 unlocked package                                                                                                                              |
