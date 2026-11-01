@@ -92,6 +92,30 @@ A host that doesn't resolve falls into the last row: Salesforce sends callouts t
 it surfaces as `Unable to tunnel through proxy. Proxy returns "HTTP/1.1 503 Service Unavailable"`,
 the same message as a host that is briefly down.
 
+### DML errors
+
+`DmlFailureClassifier` classifies the errors DML returned for one record, by each error's status
+code. It takes `Database.Error`, so it works for insert, update, upsert and delete results alike:
+
+```apex
+List<Database.SaveResult> results = Database.update(records, false);
+for (Database.SaveResult result : results) {
+  if (!result.isSuccess()) {
+    FailureClass verdict = new DmlFailureClassifier()
+      .classify(IntegrationFailure.fromDmlErrors('SAP_PI_Orders', result.getErrors()));
+  }
+}
+```
+
+| Status code                                                                                                                                                                 | Verdict     | Why                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `UNABLE_TO_LOCK_ROW`, or any error whose message contains it                                                                                                                | `RETRYABLE` | Row-lock contention clears once the other transaction commits; this also catches a lock inside a trigger |
+| `REQUIRED_FIELD_MISSING`, `STRING_TOO_LONG`, `INVALID_TYPE_ON_FIELD_IN_RECORD`, `INVALID_EMAIL_ADDRESS`, `NUMBER_OUTSIDE_VALID_RANGE`, `MALFORMED_ID`, `DUPLICATE_VALUE`    | `POISON`    | The record's own data is wrong, so only a different message can succeed                                  |
+| Anything else, for example `FIELD_CUSTOM_VALIDATION_EXCEPTION`, `INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST`, `INVALID_CROSS_REFERENCE_KEY`, `INSUFFICIENT_ACCESS_OR_READONLY` | `TERMINAL`  | A validation rule, a missing picklist value, missing master data or permissions: a person fixes it first |
+
+When a record has several errors, the most severe wins: `POISON`, then `TERMINAL`, then
+`RETRYABLE`. A record that is locked and also fails validation won't succeed on retry.
+
 ## Roadmap
 
 | Stage | Scope                                                                                                                                                  |
